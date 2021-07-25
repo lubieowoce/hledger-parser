@@ -1,0 +1,15 @@
+2020-01-15 Hello World Inc. | thing
+  assets:account1     123.45 USD
+  expenses:account2  -123.45 USD ; posting comment 2
+
+2020-01-15 Hello World Inc | thing2 ; transaction comment
+  expenses:foo    -12 USD
+  expenses:bar    -34 USD
+  assets:account1
+
+2020-01-15 Hello World Inc
+  ; comment 1
+  expenses:foo    -12 USD
+  ; comment 2
+  expenses:bar    -34 USD
+  assets:account1

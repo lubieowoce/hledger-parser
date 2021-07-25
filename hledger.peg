@@ -1,0 +1,139 @@
+grammar hledger
+
+# https://plaintextaccounting.org/quickref/
+
+root <- ledger
+
+ledger <- (
+  NEWLINE /
+  directive /
+  file_comment /
+  transaction
+)+
+
+NEWLINE <- ('\r'? '\n') / '\r'
+SPC <- ' '+
+DIGIT <- [0-9]
+
+
+indent  <- '  ' (' ')*
+spaces2 <- '  ' (' ')*
+
+
+transaction <- (
+  date maybedate2:('=' date)? status maybecode:(' ' code)?
+  ' ' payee maybenote:note? maybecomment:comment? NEWLINE
+  body
+)
+
+# TODO: multi-line comments in transactions/postings
+
+
+################
+# Transactions #
+################
+# https://hledger.org/hledger.html#transactions
+
+digit4 <- DIGIT DIGIT DIGIT DIGIT
+digit2 <- DIGIT DIGIT
+
+date <- (
+    (maybeyear:(content:digit4 '-')? month:digit2 sep:'-' day:digit2) /
+    (maybeyear:(content:digit4 '/')? month:digit2 sep:'/' day:digit2) /
+    (maybeyear:(content:digit4 '.')? month:digit2 sep:'.' day:digit2)
+)
+
+code    <- '(' content:[^)]+ ')'
+
+status <- (
+  ' !' / # pending
+  ' *'   # cleared
+)?
+
+# payee <- (~('|'|';'|NEWLINE))+ 
+# payee <- [^;|\r\n]+
+payee <- (!(note / NEWLINE) .)+
+
+# note <- ' | ' .+
+note <- sep:' | ' content:(!(comment / NEWLINE) .)+
+
+comment <- ';' content:(!NEWLINE .)*
+
+# FIXME: doesnt check if indent level is consistent
+body <- (
+  (indent:indent content:(comment / posting) NEWLINE)+
+)
+
+############
+# Postings #
+############
+# https://hledger.org/hledger.html#postings
+# TODO: virtual postings
+
+posting <- (
+  account_name
+  rhs:(spaces2 amount? (SPC* balance_assertion)? (SPC* valuation)? SPC* comment?)?
+)
+
+account_name <- [a-zA-Z] (!(spaces2 / NEWLINE) .)+
+
+balance_assertion <- ('=' '='?) SPC* amount
+valuation <- ( '@' '@'? ) SPC* amount
+# TODO: lot prices/dates
+# https://hledger.org/hledger.html#lot-prices-lot-dates
+# {UNITPRICE}, {{TOTALPRICE}},
+# {=FIXEDUNITPRICE}, {{=FIXEDTOTALPRICE}})
+# and/or a lot date [DATE]
+
+
+#########################
+# Amounts / Commodities #
+#########################
+# https://hledger.org/hledger.html#amounts
+
+# TODO: left/right, commas, spaces, quotes, symbols
+
+amount <- quantity:decimal maybecommodity:(SPC+ content:commodity)?
+decimal <- '-'? DIGIT+ ('.' DIGIT+)?
+commodity <- [a-zA-Z] [a-zA-Z0-9._-]+
+# TODO: quoted commodities can contain spaces
+
+##############
+# Directives #
+##############
+# https://hledger.org/hledger.html#directives
+
+directive <- directive_name SPC+ args:(!NEWLINE . )+
+
+directive_name <- (
+  'account' /
+  'include' /
+  'commodity'
+  'alias' / 'end aliases'
+  'apply account' / 'end apply account' /
+  'comment' / # 'end comment' /
+  'D' /
+  'P' /
+  'Y'
+)
+# TODO: handle 'comment\n ... \nend comment\n'
+
+
+##############
+# Other #
+##############
+
+file_comment <- [#;*] content:(!NEWLINE .)* NEWLINE
+
+# TODO: auto-postings
+# https://hledger.org/hledger.html#auto-postings
+# = QUERY
+#     ACCOUNT  AMOUNT
+#     ...
+#     ACCOUNT  [AMOUNT]
+
+# TODO: periodic transactions
+# https://hledger.org/hledger.html#periodic-transactions
+# ~ every 10th day of month from 2020/01
+#     expenses:rent          $2000
+#     assets:bank:checking
