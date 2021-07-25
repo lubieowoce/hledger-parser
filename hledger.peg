@@ -68,17 +68,27 @@ body <- (
 # Postings #
 ############
 # https://hledger.org/hledger.html#postings
-# TODO: virtual postings
 
 posting <- (
-  account_name
-  rhs:(spaces2 amount? (SPC* balance_assertion)? (SPC* valuation)? SPC* comment?)?
+  account
+  rhs:(spaces2
+    maybeamount:amount?
+    maybebalanceassertion:(SPC* content:balance_assertion)?
+    maybevaluation:(SPC* content:valuation)?
+    SPC* comment?
+  )?
 )
 
-account_name <- [a-zA-Z] (!(spaces2 / NEWLINE) .)+
+account <- (
+  account:(             [a-zA-Z] (!(spaces2 / NEWLINE) .)+) /
+  virtual_account:('(' ([a-zA-Z] (!(spaces2 / NEWLINE / ')') .)+) ')') /
+  virtual_account:('[' ([a-zA-Z] (!(spaces2 / NEWLINE / ']') .)+) ']')
+)
+
 
 balance_assertion <- ('=' '='?) SPC* amount
 valuation <- ( '@' '@'? ) SPC* amount
+
 # TODO: lot prices/dates
 # https://hledger.org/hledger.html#lot-prices-lot-dates
 # {UNITPRICE}, {{TOTALPRICE}},
@@ -91,12 +101,24 @@ valuation <- ( '@' '@'? ) SPC* amount
 #########################
 # https://hledger.org/hledger.html#amounts
 
-# TODO: left/right, commas, spaces, quotes, symbols
+amount <- (
+  (commodity        SPC* quantity:decimal) / # left
+  (quantity:decimal SPC* commodity       ) / # right
+  (quantity:decimal) # bare
+)
 
-amount <- quantity:decimal maybecommodity:(SPC+ content:commodity)?
 decimal <- '-'? DIGIT+ ('.' DIGIT+)?
-commodity <- [a-zA-Z] [a-zA-Z0-9._-]+
-# TODO: quoted commodities can contain spaces
+
+
+# actual rules for quoted/unquoted commodities:
+# https://github.com/simonmichael/hledger/blob/
+#   665fec83cd9b158829f451cc1cea00bf4eaa1d04/hledger-lib/Hledger/Data/Commodity.hs#L28
+
+commodity <- (
+  unquoted_commodity:([^0-9\-+.@*;\t\n \"{}=])+ /
+  quoted_commodity:('"' [^";\n]+ '"')
+)
+
 
 ##############
 # Directives #
@@ -106,21 +128,25 @@ commodity <- [a-zA-Z] [a-zA-Z0-9._-]+
 directive <- directive_name SPC+ args:(!NEWLINE . )+
 
 directive_name <- (
-  'account' /
   'include' /
-  'commodity'
-  'alias' / 'end aliases'
+  'alias' / 'end aliases' /
+  'account' /
   'apply account' / 'end apply account' /
-  'comment' / # 'end comment' /
+  'commodity' /
+  'payee' /
+  'tag' / 'end tag' /
   'D' /
-  'P' /
-  'Y'
+  'Y' /
+  'C' /
+  'comment' / # 'end comment' /
+  'pop' /
+  'P'
 )
 # TODO: handle 'comment\n ... \nend comment\n'
 
 
 ##############
-# Other #
+# Other      #
 ##############
 
 file_comment <- [#;*] content:(!NEWLINE .)* NEWLINE

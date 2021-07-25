@@ -1,0 +1,7 @@
+2021-01-25 Acme | foo + bar
+    assets:cash            -1600.00 XYZ
+    assets:acme(foo)        1000.00 XYZ
+    assets:acme(bar)         600.00 XYZ
+    (budget:acme)         $-1600.00
+    (used:foo/bar)         $1600.00
+
